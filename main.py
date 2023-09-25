@@ -3,13 +3,16 @@ from torchvision.transforms import transforms
 import torchvision
 import torch.utils as utils
 from compressor import DeepCompressor, NET
+import warnings
+
+# 忽略所有警告
+warnings.filterwarnings("ignore")
 
 data_root = "data"
 
-
 transforms = transforms.Compose([transforms.Resize(32),
                                  transforms.RandomHorizontalFlip(),
-                                 transforms.ToTensor(),])
+                                 transforms.ToTensor(), ])
 
 dataset = torchvision.datasets.MNIST(root=data_root, transform=transforms, download=True, train=True)
 train_data = utils.data.DataLoader(dataset, shuffle=True, batch_size=100, num_workers=2)
@@ -19,12 +22,13 @@ test_data = utils.data.DataLoader(test_dataset, shuffle=False, batch_size=100, n
 
 
 def compress():
-    compressor = DeepCompressor("l-lenet.pth", test_data=test_data, train_data=train_data, k=32, lr=0.001)
+    compressor = DeepCompressor("./l-lenet.pth", test_data=test_data, train_data=train_data, k=32, lr=0.001)
     model = compressor.train(epoches=10)
     print(model)
-    torch.save(model, "DC-lenet.pth")
+    torch.save(model.state_dict(), "DC-lenet.pth")
     net = NET.copy(model)
-    torch.save(net, "DC-new-forward-lenet.pth")
+    torch.save(net.state_dict(), "DC-new-forward-lenet.pth")
 
 
-compress()
+if __name__ == '__main__':
+    compress()

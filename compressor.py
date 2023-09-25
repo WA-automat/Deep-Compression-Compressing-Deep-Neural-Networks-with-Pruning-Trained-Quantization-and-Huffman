@@ -4,25 +4,27 @@ from torch.autograd import Variable
 from sklearn.cluster import KMeans
 import numpy as np
 import torch.nn as nn
+from train import Net
 
+# 判断是否有GPU
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class DeepCompressor():
     def __init__(self, model_path, test_data, train_data, k, lr):
         self.test_data = test_data
         self.train_data = train_data
-        self.model = torch.load(model_path)
+        self.model = Net()
+        self.model.load_state_dict(torch.load(model_path))
         self.criterion = torch.nn.CrossEntropyLoss()
         self.k = k
         self.lr = lr
 
-
     def train(self, optimizer=None, epoches=10):
-        self.model = self.model.cuda()
+        self.model = self.model.to(device)
         if optimizer is None:
             optimizer = \
                 optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
-
 
         for i in range(epoches):
             print("Epoch: ", i)
@@ -40,7 +42,7 @@ class DeepCompressor():
             labels = module.labeled_weight
             new_weight = self.get_finilized_weight(weight=weight, centroids=centroids, labels=labels)
             new_weight = new_weight.reshape(weight_shape[0], weight_shape[1], dtype=np.int8)
-            module.weight = torch.from_numpy(new_weight).cuda().int()
+            module.weight = torch.from_numpy(new_weight).to(device).int()
             del module.labeled_weight
         return model
 
@@ -48,7 +50,6 @@ class DeepCompressor():
         for index, label in enumerate(labels):
             weight[index] = centroids[label][0]
         return weight
-
 
     def train_batch(self, optimizer, batch, label, weight_share):
         self.model.zero_grad()
@@ -63,7 +64,7 @@ class DeepCompressor():
     def train_epoch(self, optimizer=None, weight_share=False):
         index = 1
         for batch_index, (batch, label) in enumerate(self.train_data, 0):
-            self.train_batch(optimizer, batch.cuda(), label.cuda(), weight_share)
+            self.train_batch(optimizer, batch.to(device), label.to(device), weight_share)
             if batch_index % 100 == 0:
                 print(batch_index)
 
@@ -80,7 +81,7 @@ class DeepCompressor():
                 new_weight = new_weight.reshape(weight_shape[0], weight_shape[1])
                 module.labeled_weight = labeled_weight
                 module.centroids = centroids
-                module.weight.data = torch.from_numpy(new_weight).float().cuda()
+                module.weight.data = torch.from_numpy(new_weight).float().to(device)
             x = module(x)
         return x
 
@@ -122,7 +123,7 @@ class NET(nn.Module):
     def copy(cls, source, **kw):
         instance = cls(**kw)
         for name in dir(source):
-            if not(name is 'forward' or name.startswith("__")):
+            if not (name is 'forward' or name.startswith("__")):
                 value = getattr(source, name)
                 setattr(instance, name, value)
         return instance
@@ -135,7 +136,7 @@ class NET(nn.Module):
                 weight_shape = module.weight.shape
                 new_weight = self.get_converted_weight(labeled_weight=module.weight, centroids=module.centroids)
                 new_weight = new_weight.reshape(weight_shape[0], weight_shape[1])
-                new_weight = Variable(torch.from_numpy(new_weight).float().cuda())
+                new_weight = Variable(torch.from_numpy(new_weight).float().to(device))
                 if x.dim() == 2 and module.bias is not None:
                     return torch.addmm(module.bias, x, new_weight.t())
                 output = x.matmul(new_weight.t())
@@ -143,4 +144,3 @@ class NET(nn.Module):
                     output += module.bias
                 x = output
         return x
-

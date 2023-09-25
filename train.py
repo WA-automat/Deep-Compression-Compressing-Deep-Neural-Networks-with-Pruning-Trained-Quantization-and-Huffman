@@ -4,8 +4,15 @@ from torchvision.transforms import transforms
 import torchvision
 import torch.utils as utils
 import torch.optim as optim
+import warnings
+
+# 忽略所有警告
+warnings.filterwarnings("ignore")
 
 data_root = "data"
+
+# 判断是否有GPU
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class Net(nn.Module):
@@ -33,7 +40,7 @@ class Net(nn.Module):
 
 transforms = transforms.Compose([transforms.Resize(32),
                                  transforms.RandomHorizontalFlip(),
-                                 transforms.ToTensor(),])
+                                 transforms.ToTensor(), ])
 
 dataset = torchvision.datasets.MNIST(root=data_root, transform=transforms, download=True, train=True)
 train_data = utils.data.DataLoader(dataset, shuffle=True, batch_size=100, num_workers=2)
@@ -58,7 +65,7 @@ def model_test(model, test_data):
 
 
 def train():
-    net = Net()
+    net = Net().to(device)
     net.train()
 
     criterion = nn.CrossEntropyLoss()
@@ -69,6 +76,9 @@ def train():
         print("epoch : %d" % (epoch + 1))
         running_loss = 0
         for batch_index, (inputs, target) in enumerate(train_data):
+            inputs.to(device)
+            target.to(device)
+
             optimizer.zero_grad()
             outputs = net(inputs)
             loss = criterion(outputs, target)
@@ -78,7 +88,9 @@ def train():
             if batch_index % 1000 == 0:
                 print("[%d     , %5d] loss:%.4f" % (epoch + 1, batch_index, running_loss / 1000))
 
-    torch.save(net, "l-lenet.pth")
+    torch.save(net.state_dict(), "l-lenet.pth")
     model_test(net, test_data=test_data)
 
-train()
+
+if __name__ == '__main__':
+    train()
