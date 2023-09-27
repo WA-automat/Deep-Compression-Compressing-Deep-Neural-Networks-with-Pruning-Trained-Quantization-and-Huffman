@@ -53,6 +53,8 @@ def model_test(model, test_data):
     correct = 0
     total = 0
     for (images, labels) in test_data:
+        images = images.to(device)
+        labels = labels.to(device)
         outputs = model(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
@@ -76,8 +78,8 @@ def train():
         print("epoch : %d" % (epoch + 1))
         running_loss = 0
         for batch_index, (inputs, target) in enumerate(train_data):
-            inputs.to(device)
-            target.to(device)
+            inputs = inputs.to(device)
+            target = target.to(device)
 
             optimizer.zero_grad()
             outputs = net(inputs)
